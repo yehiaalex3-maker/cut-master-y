@@ -76,7 +76,10 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      alert('يرجى إدخال اسم المشروع أولاً');
+      return;
+    }
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
