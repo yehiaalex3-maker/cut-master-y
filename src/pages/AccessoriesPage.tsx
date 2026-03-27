@@ -87,8 +87,9 @@ export default function AccessoriesPage({ onMenuToggle, projectName }: { onMenuT
       }
       setShowModal(false);
       fetchItems();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('حدث خطأ أثناء حفظ العنصر: ' + (err.message || JSON.stringify(err)));
     } finally { setSaving(false); }
   };
 

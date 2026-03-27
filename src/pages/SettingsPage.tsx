@@ -58,8 +58,9 @@ export default function SettingsPage({ onMenuToggle }: { onMenuToggle: () => voi
       if (error) throw error;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('حدث خطأ أثناء حفظ الإعدادات: ' + (err.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
     }

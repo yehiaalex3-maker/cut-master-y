@@ -89,8 +89,9 @@ export default function BoardsPage({ onMenuToggle, projectName }: { onMenuToggle
       }
       setShowModal(false);
       fetchBoards();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('حدث خطأ أثناء حفظ اللوح: ' + (err.message || JSON.stringify(err)));
     } finally { setSaving(false); }
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ToggleLeft, ToggleRight, Trash2, UserCheck, UserX, Settings } from 'lucide-react';
+import { Users, ToggleLeft, ToggleRight, Trash2, UserCheck, UserX, Settings, Shield, Plus, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,15 +14,34 @@ interface UserProfile {
   created_at: string;
 }
 
+interface Group {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+interface UserGroup {
+  id: number;
+  user_id: string;
+  group_id: number;
+  role: string;
+  user_email?: string;
+}
+
 export default function AdminPage({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [allowReg, setAllowReg] = useState(true);
   const [savingReg, setSavingReg] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [addingGroup, setAddingGroup] = useState(false);
 
   useEffect(() => {
     fetchUsers();
     fetchSettings();
+    fetchGroups();
   }, []);
 
   const fetchUsers = async () => {
@@ -95,21 +114,60 @@ export default function AdminPage({ onMenuToggle }: { onMenuToggle: () => void }
     }
   };
 
+  const fetchGroups = async () => {
+    try {
+      const { data: gData } = await supabase.from('groups').select('*').order('name');
+      setGroups(gData || []);
+      const { data: ugData } = await supabase.from('user_groups').select('*');
+      setUserGroups(ugData || []);
+    } catch (err) { console.error(err); }
+  };
+
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setAddingGroup(true);
+    try {
+      const { error } = await supabase.from('groups').insert({ name: newGroupName });
+      if (error) throw error;
+      setNewGroupName('');
+      fetchGroups();
+    } catch (err: any) { alert(err.message); }
+    finally { setAddingGroup(false); }
+  };
+
+  const deleteGroup = async (id: number) => {
+    if (!confirm('حذف هذه المجموعة وجميع روابط الأعضاء بها؟')) return;
+    try {
+      await supabase.from('groups').delete().eq('id', id);
+      fetchGroups();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const addUserToGroup = async (userId: string, groupId: number) => {
+    try {
+      const { error } = await supabase.from('user_groups').insert({ user_id: userId, group_id: groupId });
+      if (error) throw error;
+      fetchGroups();
+    } catch (err: any) { alert('هذا المستخدم موجود بالفعل في المجموعة أو حدث خطأ'); }
+  };
+
+  const removeUserFromGroup = async (id: number) => {
+    try {
+      await supabase.from('user_groups').delete().eq('id', id);
+      fetchGroups();
+    } catch (err: any) { alert(err.message); }
+  };
+
   const deleteUser = async (id: string) => {
     if (!confirm('حذف هذا المستخدم نهائياً؟')) return;
     try {
-      // Note: This only deletes from users_profile. 
-      // Deleting from auth.users requires admin privileges or a function.
       const { error } = await supabase
         .from('users_profile')
         .delete()
         .eq('id', id);
-      
       if (error) throw error;
       fetchUsers();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err: any) { alert(err.message); }
   };
 
   return (
@@ -205,6 +263,77 @@ export default function AdminPage({ onMenuToggle }: { onMenuToggle: () => void }
               </table>
             </div>
           )}
+        </motion.div>
+
+        {/* Groups Management */}
+        <motion.div className="admin-card" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <div className="admin-card-header">
+            <Shield size={20} />
+            <div>
+              <h3>إدارة المجموعات والفرق</h3>
+              <p>إنشاء مجموعات عمل للتعاون بين المستخدمين</p>
+            </div>
+          </div>
+          
+          <div className="group-create-form" style={{ display: 'flex', gap: 10, marginBottom: 20, padding: 15, background: '#f8f8f8', borderRadius: 12 }}>
+            <input 
+              type="text" 
+              placeholder="اسم المجموعة الجديدة..." 
+              value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd' }}
+            />
+            <button className="btn-primary" onClick={createGroup} disabled={addingGroup} style={{ background: '#00b5a3', color: 'white', padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer' }}>
+              <Plus size={16} style={{ marginLeft: 5 }} />
+              إنشاء
+            </button>
+          </div>
+
+          <div className="groups-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+            {groups.map(group => (
+              <div key={group.id} className="group-item-card" style={{ border: '1px solid #eee', borderRadius: 12, padding: 15 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h4 style={{ margin: 0, fontWeight: 800 }}>{group.name}</h4>
+                  <button onClick={() => deleteGroup(group.id)} style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                
+                <div className="group-members" style={{ fontSize: 13 }}>
+                  <p style={{ color: '#666', marginBottom: 8 }}>الأعضاء:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {userGroups.filter(ug => ug.group_id === group.id).map(ug => {
+                      const u = users.find(usr => usr.id === ug.user_id);
+                      return (
+                        <div key={ug.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', background: '#f0fdfa', borderRadius: 6 }}>
+                          <span>{u?.full_name || u?.email || 'مستخدم غير معروف'}</span>
+                          <button onClick={() => removeUserFromGroup(ug.id)} style={{ color: '#999', border: 'none', background: 'none', cursor: 'pointer' }}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 15, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+                  <select 
+                    className="add-to-group-select"
+                    onChange={(e) => {
+                      if (e.target.value) addUserToGroup(e.target.value, group.id);
+                      e.target.value = '';
+                    }}
+                    style={{ width: '100%', padding: '6px', borderRadius: 6, fontSize: 12 }}
+                  >
+                    <option value="">+ إضافة مستخدم للمجموعة</option>
+                    {users.filter(u => !userGroups.some(ug => ug.group_id === group.id && ug.user_id === u.id)).map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
       </div>
     </div>

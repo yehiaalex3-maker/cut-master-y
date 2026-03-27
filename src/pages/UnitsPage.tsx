@@ -132,8 +132,9 @@ export default function UnitsPage({ onMenuToggle, projectName }: { onMenuToggle:
       }
       setShowModal(false);
       fetchUnits();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('حدث خطأ أثناء حفظ الوحدة: ' + (err.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
     }

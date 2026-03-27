@@ -12,21 +12,40 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
-  const [form, setForm] = useState({ name: '', client_name: '', notes: '' });
+  const [userGroups, setUserGroups] = useState<{id: number, name: string}[]>([]);
+  const [form, setForm] = useState({ name: '', client_name: '', notes: '', group_id: null as number | null });
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   const fetchProjects = async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // fetch user groups
+      const { data: ugData } = await supabase
+        .from('user_groups')
+        .select('group_id, groups(id, name)')
+        .eq('user_id', user.id);
+      
+      const flatGroups = (ugData || []).map((ug: any) => ug.groups).filter(Boolean);
+      setUserGroups(flatGroups);
+      const groupIds = flatGroups.map((g: any) => g.id);
+
+      let query = supabase.from('projects').select('*');
+      if (groupIds.length > 0) {
+        query = query.or(`user_id.eq.${user.id},group_id.in.(${groupIds.join(',')})`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
       setProjects(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('خطأ في جلب المشاريع: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -36,14 +55,14 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
 
   const openCreate = () => {
     setEditProject(null);
-    setForm({ name: '', client_name: '', notes: '' });
+    setForm({ name: '', client_name: '', notes: '', group_id: null });
     setShowModal(true);
   };
 
   const openEdit = (p: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditProject(p);
-    setForm({ name: p.name, client_name: p.client_name || '', notes: p.notes || '' });
+    setForm({ name: p.name, client_name: p.client_name || '', notes: p.notes || '', group_id: p.group_id || null });
     setShowModal(true);
   };
 
@@ -66,8 +85,9 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
       }
       setShowModal(false);
       fetchProjects();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('حدث خطأ أثناء حفظ المشروع: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -207,6 +227,21 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
                   rows={3}
                 />
               </div>
+              {userGroups.length > 0 && (
+                <div className="form-group">
+                  <label>مشاركة مع مجموعة</label>
+                  <select
+                    value={form.group_id || ''}
+                    onChange={e => setForm({ ...form, group_id: e.target.value ? Number(e.target.value) : null })}
+                    style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #ddd', fontFamily: 'inherit' }}
+                  >
+                    <option value="">لا يوجد (خاص بي فقط)</option>
+                    {userGroups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="modal-actions">
                 <button className="btn-secondary" onClick={() => setShowModal(false)}>إلغاء</button>
                 <button className="btn-primary" onClick={handleSave} disabled={saving}>
