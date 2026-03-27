@@ -123,13 +123,16 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[Auth] App mounted. Checking session...');
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[Auth] Current session:', session);
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
       else setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`[Auth] Auth state changed: ${event}`, session);
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
       else { setUserProfile(null); setAuthLoading(false); }
