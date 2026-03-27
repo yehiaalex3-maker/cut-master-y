@@ -19,18 +19,26 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
 
   const fetchProjects = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No user found in fetchProjects');
+        return;
+      }
 
       // fetch user groups
-      const { data: ugData } = await supabase
+      const { data: ugData, error: ugError } = await supabase
         .from('user_groups')
         .select('group_id, groups(id, name)')
         .eq('user_id', user.id);
       
+      if (ugError) console.error('Groups Fetch Error:', ugError);
+
       const flatGroups = (ugData || []).map((ug: any) => ug.groups).filter(Boolean);
       setUserGroups(flatGroups);
       const groupIds = flatGroups.map((g: any) => g.id);
+
+      console.log('Fetching projects for user:', user.id, 'Groups:', groupIds);
 
       let query = supabase.from('projects').select('*');
       if (groupIds.length > 0) {
@@ -42,9 +50,10 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
+      console.log('Projects fetched:', data?.length || 0);
       setProjects(data || []);
     } catch (err: any) {
-      console.error(err);
+      console.error('Fetch Projects Error:', err);
       alert('خطأ في جلب المشاريع: ' + err.message);
     } finally {
       setLoading(false);
@@ -70,23 +79,32 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
     if (!form.name.trim()) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('حدث خطأ: لم يتم العثور على بيانات المستخدم. يرجى إعادة تسجيل الدخول.');
+        return;
+      }
+
+      console.log('Inserting/Updating project...', { ...form, user_id: user.id });
+
       if (editProject) {
         const { error } = await supabase
           .from('projects')
           .update(form)
           .eq('id', editProject.id);
         if (error) throw error;
+        alert('تم تحديث المشروع بنجاح');
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase
           .from('projects')
-          .insert({ ...form, user_id: user?.id });
+          .insert({ ...form, user_id: user.id });
         if (error) throw error;
+        alert('تم إنشاء المشروع بنجاح');
       }
       setShowModal(false);
       fetchProjects();
     } catch (err: any) {
-      console.error(err);
+      console.error('Project Save Error:', err);
       alert('حدث خطأ أثناء حفظ المشروع: ' + err.message);
     } finally {
       setSaving(false);
