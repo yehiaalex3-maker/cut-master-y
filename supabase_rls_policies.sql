@@ -1,23 +1,20 @@
--- Row Level Security (RLS) Policies Setup Code
+-- Complete RLS Policies for all tables
 
--- Enable RLS on the table
-ALTER TABLE your_table_name ENABLE ROW LEVEL SECURITY;
+-- Table: users
+CREATE POLICY "Select users" ON users
+    FOR SELECT
+    USING (auth.uid() = id);
 
--- Create policies for different roles
-CREATE POLICY select_policy ON your_table_name
-  FOR SELECT
-  USING (role = 'some_role');
+CREATE POLICY "Insert users" ON users
+    FOR INSERT
+    WITH CHECK (auth.uid() = id);
 
-CREATE POLICY insert_policy ON your_table_name
-  FOR INSERT
-  WITH CHECK (role = 'some_role');
+CREATE POLICY "Update users" ON users
+    FOR UPDATE
+    USING (auth.uid() = id);
 
-CREATE POLICY update_policy ON your_table_name
-  FOR UPDATE
-  USING (role = 'some_role');
+CREATE POLICY "Delete users" ON users
+    FOR DELETE
+    USING (auth.uid() = id);
 
-CREATE POLICY delete_policy ON your_table_name
-  FOR DELETE
-  USING (role = 'some_role');
-
--- Repeat or adjust policies based on your needs
+-- Add more policies for other tables here
