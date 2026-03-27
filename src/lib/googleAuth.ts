@@ -22,4 +22,3 @@ export function handleGoogleRedirect() {
   // Native Supabase handles parsing the hash/URL parameters on its own.
   // We can just leave this as a no-op so we don't break existing App.tsx imports.
 }
-
