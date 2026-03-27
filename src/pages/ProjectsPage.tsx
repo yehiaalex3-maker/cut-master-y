@@ -4,6 +4,7 @@ import { Plus, Folder, Trash2, Edit2, ChevronLeft, Calendar, User } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
+import supabase from '../lib/supabase';
 import type { Project } from '../types';
 
 export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => void }) {
@@ -17,9 +18,13 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch('/api/projects');
-      const data = await res.json();
-      setProjects(Array.isArray(data) ? data : []);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setProjects(data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -47,20 +52,22 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
     setSaving(true);
     try {
       if (editProject) {
-        await fetch('/api/projects', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editProject.id, ...form }),
-        });
+        const { error } = await supabase
+          .from('projects')
+          .update(form)
+          .eq('id', editProject.id);
+        if (error) throw error;
       } else {
-        await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from('projects')
+          .insert({ ...form, user_id: user?.id });
+        if (error) throw error;
       }
       setShowModal(false);
       fetchProjects();
+    } catch (err) {
+      console.error(err);
     } finally {
       setSaving(false);
     }
@@ -69,12 +76,16 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('هل أنت متأكد من حذف هذا المشروع؟')) return;
-    await fetch('/api/projects', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    fetchProjects();
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      fetchProjects();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

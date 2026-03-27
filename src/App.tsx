@@ -48,11 +48,8 @@ function ProjectWrapper({
 
   useEffect(() => {
     if (projectId) {
-      fetch('/api/projects')
-        .then(r => r.json())
-        .then((list: Project[]) => {
-          setProject(list.find(p => p.id === Number(projectId)) || null);
-        });
+      supabase.from('projects').select('*').eq('id', projectId).single()
+        .then(({ data }) => setProject(data));
     }
   }, [projectId]);
 

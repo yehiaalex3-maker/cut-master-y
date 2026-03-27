@@ -30,14 +30,17 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
         if (error) throw error;
         onAuth();
       } else {
-        const res = await fetch('/api/auth-register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName }),
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            }
+          }
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'حدث خطأ أثناء التسجيل');
-        setSuccess('تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن');
+        if (error) throw error;
+        setSuccess('تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني (إذا تم تفعيله) أو تسجيل الدخول.');
         setMode('login');
       }
     } catch (err: any) {

@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit2, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
+import supabase from '../lib/supabase';
 
 interface Accessory {
   id: number;
@@ -42,9 +43,14 @@ export default function AccessoriesPage({ onMenuToggle, projectName }: { onMenuT
 
   const fetchItems = async () => {
     try {
-      const res = await fetch(`/api/accessories?project_id=${projectId}`);
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
+      const { data, error } = await supabase
+        .from('accessories_prices')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('sort_order', { ascending: true });
+      
+      if (error) throw error;
+      setItems(data || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -68,24 +74,49 @@ export default function AccessoriesPage({ onMenuToggle, projectName }: { onMenuT
     setSaving(true);
     try {
       if (editItem) {
-        await fetch('/api/accessories', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editItem.id, ...form }) });
+        const { error } = await supabase
+          .from('accessories_prices')
+          .update(form)
+          .eq('id', editItem.id);
+        if (error) throw error;
       } else {
-        await fetch('/api/accessories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, sort_order: items.length }) });
+        const { error } = await supabase
+          .from('accessories_prices')
+          .insert({ ...form, sort_order: items.length });
+        if (error) throw error;
       }
       setShowModal(false);
       fetchItems();
+    } catch (err) {
+      console.error(err);
     } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('حذف هذا العنصر؟')) return;
-    await fetch('/api/accessories', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-    fetchItems();
+    try {
+      const { error } = await supabase
+        .from('accessories_prices')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleQtyChange = async (item: Accessory, qty: number) => {
-    await fetch('/api/accessories', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, id: item.id, quantity: qty }) });
-    fetchItems();
+    try {
+      const { error } = await supabase
+        .from('accessories_prices')
+        .update({ quantity: qty })
+        .eq('id', item.id);
+      if (error) throw error;
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const cats = ['الكل', ...Array.from(new Set(items.map(i => i.category)))];

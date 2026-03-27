@@ -4,6 +4,7 @@ import { Save, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
+import supabase from '../lib/supabase';
 import type { CuttingSettings } from '../types';
 import { DEFAULT_CUTTING_SETTINGS } from '../lib/calculations';
 
@@ -31,8 +32,12 @@ export default function SettingsPage({ onMenuToggle }: { onMenuToggle: () => voi
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`/api/settings?project_id=${projectId}`);
-        const data = await res.json();
+        const { data } = await supabase
+          .from('cutting_settings')
+          .select('*')
+          .eq('project_id', projectId)
+          .single();
+        
         if (data) setSettings({ ...DEFAULT_CUTTING_SETTINGS, ...data });
       } catch (err) {
         console.error(err);
@@ -46,13 +51,15 @@ export default function SettingsPage({ onMenuToggle }: { onMenuToggle: () => voi
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...settings, project_id: Number(projectId) }),
-      });
+      const { error } = await supabase
+        .from('cutting_settings')
+        .upsert({ ...settings, project_id: Number(projectId) }, { onConflict: 'project_id' });
+      
+      if (error) throw error;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error(err);
     } finally {
       setSaving(false);
     }

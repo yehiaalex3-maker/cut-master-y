@@ -19,72 +19,97 @@ export default function AdminPage({ onMenuToggle }: { onMenuToggle: () => void }
   const [loading, setLoading] = useState(true);
   const [allowReg, setAllowReg] = useState(true);
   const [savingReg, setSavingReg] = useState(false);
-  const [token, setToken] = useState('');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.access_token) {
-        setToken(session.access_token);
-        fetchUsers(session.access_token);
-        fetchSettings();
-      }
-    });
+    fetchUsers();
+    fetchSettings();
   }, []);
 
-  const fetchUsers = async (t: string) => {
+  const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin-users', { headers: { Authorization: `Bearer ${t}` } });
-      const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+      const { data, error } = await supabase
+        .from('users_profile')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setUsers(data || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
   const fetchSettings = async () => {
-    const res = await fetch('/api/app-settings');
-    const data = await res.json();
-    setAllowReg(data.allow_registration === 'true');
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'allow_registration')
+        .single();
+      
+      if (data) setAllowReg(data.value === 'true');
+    } catch (err) { console.error(err); }
   };
 
   const toggleReg = async () => {
     setSavingReg(true);
     const newVal = !allowReg;
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch('/api/app-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ key: 'allow_registration', value: String(newVal) }),
-    });
-    setAllowReg(newVal);
-    setSavingReg(false);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key: 'allow_registration', value: String(newVal) }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      setAllowReg(newVal);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingReg(false);
+    }
   };
 
   const toggleActive = async (user: UserProfile) => {
-    await fetch('/api/admin-users', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id: user.id, role: user.role, is_active: !user.is_active, full_name: user.full_name }),
-    });
-    fetchUsers(token);
+    try {
+      const { error } = await supabase
+        .from('users_profile')
+        .update({ is_active: !user.is_active })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const changeRole = async (user: UserProfile, role: string) => {
-    await fetch('/api/admin-users', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id: user.id, role, is_active: user.is_active, full_name: user.full_name }),
-    });
-    fetchUsers(token);
+    try {
+      const { error } = await supabase
+        .from('users_profile')
+        .update({ role })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const deleteUser = async (id: string) => {
     if (!confirm('حذف هذا المستخدم نهائياً؟')) return;
-    await fetch('/api/admin-users', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id }),
-    });
-    fetchUsers(token);
+    try {
+      // Note: This only deletes from users_profile. 
+      // Deleting from auth.users requires admin privileges or a function.
+      const { error } = await supabase
+        .from('users_profile')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
