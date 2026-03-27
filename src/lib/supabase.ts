@@ -1,3 +1,10 @@
+// أضف في src/lib/supabase.ts
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('[Supabase] Missing credentials! Check your .env file.');
+}
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl =
