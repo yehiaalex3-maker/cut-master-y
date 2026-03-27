@@ -2,7 +2,7 @@ import { useState } from "react";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { exportProjectToExcel, exportToCSV } from "../lib/exportService";
 
-export default function ExportPage({ projectName }: { projectName?: string }) {
+export default function ExportPage({ projectName }: { onMenuToggle?: () => void, projectName?: string }) {
   const [loading, setLoading] = useState(false);
 
   const handleExportExcel = async () => {
@@ -15,7 +15,7 @@ export default function ExportPage({ projectName }: { projectName?: string }) {
       ];
 
       // @ts-ignore
-      await exportProjectToExcel(projectName || 'Project', data);
+      await exportProjectToExcel(projectName, data);
       alert("✅ تم التصدير بنجاح!");
     } catch (error) {
       console.error("خطأ:", error);
