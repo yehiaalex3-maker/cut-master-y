@@ -17,6 +17,8 @@ import PwaInstallBanner from './components/PwaInstallBanner';
 import SiteLogo from './components/SiteLogo';
 import type { Project } from './types';
 
+const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+
 handleGoogleRedirect();
 
 interface UserProfile {
@@ -120,24 +122,36 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session error:', error);
+        // If session is "in the future", it might be a clock issue
+        if (error.message?.includes('future')) {
+          console.warn('Clock skew detected. Attempting to compensate...');
+        }
+      }
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
       else setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, !!session);
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
-      else { setUserProfile(null); setAuthLoading(false); }
+      else { 
+        setUserProfile(null); 
+        if (event === 'SIGNED_OUT') setAuthLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+
   const fetchProfile = async (userId: string) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users_profile')
         .select('*')
         .eq('id', userId)
@@ -146,6 +160,10 @@ export default function App() {
       if (data) {
         setUserProfile(data);
       } else {
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error('Profile fetch error:', error);
+        }
+        
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const newProfile = {
@@ -155,14 +173,21 @@ export default function App() {
             role: 'user',
             is_active: true,
           };
-          await supabase.from('users_profile').insert(newProfile);
+          const { error: insError } = await supabase.from('users_profile').insert(newProfile);
+          if (insError) {
+            console.error('Profile creation error:', insError);
+            // If we get a 403 here, it's likely RLS on users_profile
+          }
           setUserProfile(newProfile as UserProfile);
         }
       }
+    } catch (err) {
+      console.error('fetchProfile unexpected error:', err);
     } finally {
       setAuthLoading(false);
     }
   };
+
 
   /* ── Loading screen ── */
   if (authLoading) {
@@ -227,6 +252,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {!isSupabaseConfigured && (
+        <div style={{
+          background: '#ef4444', color: 'white', padding: '12px', textAlign: 'center',
+          fontSize: '14px', fontWeight: 'bold', position: 'sticky', top: 0, zIndex: 9999
+        }}>
+          ⚠️ تنبيه: بيانات اتصال Supabase غير مكتملة في ملف .env - الموقع لن يعمل بشكل صحيح!
+        </div>
+      )}
       <PwaInstallBanner />
       <Routes>
         <Route path="/"

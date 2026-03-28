@@ -84,35 +84,42 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert('حدث خطأ: لم يتم العثور على بيانات المستخدم. يرجى إعادة تسجيل الدخول.');
-        return;
+        throw new Error('لم يتم العثور على بيانات المستخدم. يرجى إعادة تسجيل الدخول.');
       }
 
-      console.log('Inserting/Updating project...', { ...form, user_id: user.id });
+      console.log('Attempting to save project:', { ...form, user_id: user.id });
 
+      let error;
       if (editProject) {
-        const { error } = await supabase
+        const { error: err } = await supabase
           .from('projects')
           .update(form)
           .eq('id', editProject.id);
-        if (error) throw error;
-        alert('تم تحديث المشروع بنجاح');
+        error = err;
       } else {
-        const { error } = await supabase
+        const { error: err } = await supabase
           .from('projects')
           .insert({ ...form, user_id: user.id });
-        if (error) throw error;
-        alert('تم إنشاء المشروع بنجاح');
+        error = err;
       }
+
+      if (error) {
+        console.error('Supabase Save Error:', error);
+        throw error;
+      }
+
+      alert(editProject ? 'تم تحديث المشروع بنجاح' : 'تم إنشاء المشروع بنجاح');
       setShowModal(false);
       fetchProjects();
     } catch (err: any) {
       console.error('Project Save Error:', err);
-      alert('حدث خطأ أثناء حفظ المشروع: ' + err.message);
+      const msg = err.message || JSON.stringify(err);
+      alert('حدث خطأ أثناء حفظ المشروع: ' + msg);
     } finally {
       setSaving(false);
     }
   };
+
 
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
