@@ -76,45 +76,37 @@ export default function ProjectsPage({ onMenuToggle }: { onMenuToggle: () => voi
   };
 
   const handleSave = async () => {
-    console.log('[v0] handleSave called with form:', form);
     if (!form.name.trim()) {
       alert('يرجى إدخال اسم المشروع أولاً');
       return;
     }
     setSaving(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('[v0] getUser result:', { user, userError });
+      const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         alert('حدث خطأ: لم يتم العثور على بيانات المستخدم. يرجى إعادة تسجيل الدخول.');
         return;
       }
 
-      console.log('[v0] Inserting/Updating project...', { ...form, user_id: user.id });
-
       if (editProject) {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('projects')
           .update(form)
-          .eq('id', editProject.id)
-          .select();
-        console.log('[v0] Update result:', { data, error });
+          .eq('id', editProject.id);
         if (error) throw error;
         alert('تم تحديث المشروع بنجاح');
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('projects')
-          .insert({ ...form, user_id: user.id })
-          .select();
-        console.log('[v0] Insert result:', { data, error });
+          .insert({ ...form, user_id: user.id });
         if (error) throw error;
         alert('تم إنشاء المشروع بنجاح');
       }
       setShowModal(false);
       fetchProjects();
     } catch (err: any) {
-      console.error('[v0] Project Save Error:', err);
+      console.error('Project Save Error:', err);
       alert('حدث خطأ أثناء حفظ المشروع: ' + err.message);
     } finally {
       setSaving(false);
