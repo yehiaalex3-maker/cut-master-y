@@ -1,4 +1,5 @@
-const CACHE_NAME = 'master-y-v1';
+const CACHE_NAME = 'master-y-v2';
+
 const STATIC_ASSETS = ['/', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

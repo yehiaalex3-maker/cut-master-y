@@ -31,7 +31,21 @@ interface UserProfile {
 // Register service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker?.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (confirm('تحديث متوفر! هل ترغب في إعادة تحميل الصفحة لرؤية التغييرات؟')) {
+                window.location.reload();
+              }
+            }
+          });
+        });
+      }).catch(() => {});
+    }
+
   });
 }
 
@@ -249,6 +263,7 @@ export default function App() {
   }
 
   const isAdmin = userProfile?.role === 'admin';
+
 
   return (
     <BrowserRouter>
