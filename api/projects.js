@@ -7,9 +7,15 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    if (!supabase) throw new Error('Supabase client is not initialized. Check your environment variables.');
+    if (!supabase) {
+      return res.status(500).json({ 
+        error: 'Supabase client is not initialized.', 
+        details: 'Make sure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Vercel environment variables.'
+      });
+    }
 
     if (req.method === 'GET') {
+
       const { data, error } = await supabase
         .from('projects')
         .select('*')

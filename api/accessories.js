@@ -7,13 +7,17 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase client is not initialized.' });
+    }
+
     if (req.method === 'GET') {
       const { project_id } = req.query;
       let query = supabase.from('accessories_prices').select('*').order('sort_order', { ascending: true });
       if (project_id) query = query.eq('project_id', project_id);
       const { data, error } = await query;
       if (error) throw error;
-      return res.status(200).json(data);
+      return res.status(200).json(data || []);
     }
     if (req.method === 'POST') {
       const { data, error } = await supabase
@@ -26,6 +30,7 @@ export default async function handler(req, res) {
     }
     if (req.method === 'PUT') {
       const { id, ...rest } = req.body;
+      if (!id) return res.status(400).json({ error: 'ID required' });
       const { data, error } = await supabase
         .from('accessories_prices')
         .update(rest)
@@ -37,13 +42,15 @@ export default async function handler(req, res) {
     }
     if (req.method === 'DELETE') {
       const { id } = req.body;
+      if (!id) return res.status(400).json({ error: 'ID required' });
       const { error } = await supabase.from('accessories_prices').delete().eq('id', id);
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('API error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Accessories API Error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Internal error' });
   }
 }
+
