@@ -174,23 +174,31 @@ export default function App() {
       if (data) {
         setUserProfile(data);
       } else {
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        // Profile not found (PGRST116) – create it
+        if (error && error.code !== 'PGRST116') {
           console.error('Profile fetch error:', error);
         }
-        
-        const { data: { user } } = await supabase.auth.getUser();
+
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData?.user;
         if (user) {
           const newProfile = {
             id: user.id,
             email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'مستخدم',
+            full_name:
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              user.email?.split('@')[0] ||
+              'مستخدم',
             role: 'user',
             is_active: true,
           };
-          const { error: insError } = await supabase.from('users_profile').insert(newProfile);
-          if (insError) {
-            console.error('Profile creation error:', insError);
-            // If we get a 403 here, it's likely RLS on users_profile
+          // Use upsert to avoid duplicate key errors on race conditions
+          const { error: upsertErr } = await supabase
+            .from('users_profile')
+            .upsert(newProfile, { onConflict: 'id' });
+          if (upsertErr) {
+            console.error('Profile upsert error:', upsertErr);
           }
           setUserProfile(newProfile as UserProfile);
         }
