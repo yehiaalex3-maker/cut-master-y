@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { Unit, CuttingSettings, CutPiece } from '../types';
 import { calculateCutList, DEFAULT_CUTTING_SETTINGS } from '../lib/calculations';
+import supabase from '../lib/supabase';
 import { exportProjectToExcel } from '../lib/exportService';
 
 export default function CutListPage({ onMenuToggle, projectName }: { onMenuToggle: () => void; projectName: string }) {
@@ -19,11 +20,11 @@ export default function CutListPage({ onMenuToggle, projectName }: { onMenuToggl
     const fetchData = async () => {
       try {
         const [unitsRes, settingsRes] = await Promise.all([
-          fetch(`/api/units?project_id=${projectId}`),
-          fetch(`/api/settings?project_id=${projectId}`),
+          supabase.from('units').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
+          supabase.from('cutting_settings').select('*').eq('project_id', projectId).maybeSingle()
         ]);
-        const unitsData = await unitsRes.json();
-        const settingsData = await settingsRes.json();
+        const unitsData = unitsRes.data || [];
+        const settingsData = settingsRes.data;
         const u = Array.isArray(unitsData) ? unitsData : [];
         const s = settingsData || { ...DEFAULT_CUTTING_SETTINGS, project_id: Number(projectId) };
         setUnits(u);

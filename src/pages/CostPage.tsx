@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { Unit, CuttingSettings } from '../types';
 import { calculateCutList, DEFAULT_CUTTING_SETTINGS } from '../lib/calculations';
+import supabase from '../lib/supabase';
 
 interface Board {
   id: number;
@@ -42,14 +43,17 @@ export default function CostPage({ onMenuToggle, projectName }: { onMenuToggle: 
     const fetchData = async () => {
       try {
         const [unitsRes, settingsRes, boardsRes, accRes] = await Promise.all([
-          fetch(`/api/units?project_id=${projectId}`),
-          fetch(`/api/settings?project_id=${projectId}`),
-          fetch(`/api/boards?project_id=${projectId}`),
-          fetch(`/api/accessories?project_id=${projectId}`),
+          supabase.from('units').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
+          supabase.from('cutting_settings').select('*').eq('project_id', projectId).maybeSingle(),
+          supabase.from('boards_settings').select('*').eq('project_id', projectId),
+          supabase.from('accessories_prices').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
         ]);
-        const [unitsData, settingsData, boardsData, accData] = await Promise.all([
-          unitsRes.json(), settingsRes.json(), boardsRes.json(), accRes.json(),
-        ]);
+        
+        const unitsData = unitsRes.data || [];
+        const settingsData = settingsRes.data;
+        const boardsData = boardsRes.data || [];
+        const accData = accRes.data || [];
+
         setUnits(Array.isArray(unitsData) ? unitsData : []);
         if (settingsData) setSettings({ ...DEFAULT_CUTTING_SETTINGS, ...settingsData });
         setBoards(Array.isArray(boardsData) ? boardsData : []);
